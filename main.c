@@ -3,13 +3,18 @@
 #include <stdio.h>
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 560
+#define SPEED 20
+#define GRAVITY 1
 
 int main(int argc, char* argv[]) {
     SDL_Window *window;
     SDL_Renderer *renderer;
     SDL_Surface *surface_frog, *surface_ground, *surface_platform, *surface_background;
     SDL_Texture *texture_frog, *texture_ground, *texture_platform, *texture_background;
-    SDL_Rect srcRect, destRect, groundSrcRect, platformSrcRect, backgroundSrcRect;
+    SDL_Rect frogSrcRect, frogDestRect, groundSrcRect, groundDestRect, platformSrcRect, platformDestRect, backgroundSrcRect, backgroundDestRect;
+    SDL_Event event;
+    int quit = 0;
+    int jumping = 0;
 
     SDL_Init(SDL_INIT_VIDEO);
 
@@ -33,30 +38,19 @@ int main(int argc, char* argv[]) {
     backgroundSrcRect.w = 64;
     backgroundSrcRect.h = 64;
 
-    for (int i = 0; i < WINDOW_WIDTH; i += backgroundSrcRect.w) {
-        for (int j = 0; j < WINDOW_HEIGHT; j += backgroundSrcRect.h) {
-            destRect.x = i;
-            destRect.y = j;
-            destRect.w = backgroundSrcRect.w ;
-            destRect.h = backgroundSrcRect.h ;
-            SDL_RenderCopy(renderer, texture_background, &backgroundSrcRect, &destRect);
-        }
-    }
-
-
     // For Ninja Frog
     surface_frog = IMG_Load("game_images/Main_Characters/Ninja_Frog/Idle (32x32).png");
     texture_frog = SDL_CreateTextureFromSurface(renderer, surface_frog);
 
-    srcRect.x = 0;     // X position of the sprite on the sprite sheet
-    srcRect.y = 0;     // Y position of the sprite on the sprite sheet
-    srcRect.w = 32;    // Width of the sprite
-    srcRect.h = 32;    // Height of the sprite
+    frogSrcRect.x = 0;     // X position of the sprite on the sprite sheet
+    frogSrcRect.y = 0;     // Y position of the sprite on the sprite sheet
+    frogSrcRect.w = 32;    // Width of the sprite
+    frogSrcRect.h = 32;    // Height of the sprite
 
-    destRect.w = 32 * 3;   // Width of the sprite on the screen
-    destRect.h = 32 * 3;   // Height of the sprite on the screen
-    destRect.x = WINDOW_WIDTH/2 - destRect.w/2;  // X position on the screen
-    destRect.y = WINDOW_HEIGHT - (48 * 2) - destRect.h;  // Y position on the screen
+    frogDestRect.w = 32 * 3;   // Width of the sprite on the screen
+    frogDestRect.h = 32 * 3;   // Height of the sprite on the screen
+    frogDestRect.x = WINDOW_WIDTH/2 - frogDestRect.w/2;  // X position on the screen
+    frogDestRect.y = WINDOW_HEIGHT - (48 * 2) - frogDestRect.h;  // Y position on the screen
 
     // Load the ground and the platform
     surface_ground = IMG_Load("game_images/Terrain/Terrain (16x16).png");
@@ -76,28 +70,78 @@ int main(int argc, char* argv[]) {
     platformSrcRect.w = 48;
     platformSrcRect.h = 5;
 
-    //Draw the ninja
-    SDL_RenderCopy(renderer, texture_frog, &srcRect, &destRect);
+    while (!quit) {
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                quit = 1;
+            }
+            if (event.type == SDL_KEYDOWN) {
+                switch (event.key.keysym.sym) {
+                    case SDLK_z:
+                        if (!jumping) {
+                            frogDestRect.y -= SPEED * 7;
+                            jumping = 1;
+                        }
+                        break;
+                    case SDLK_s:
+                        frogDestRect.y += SPEED;
+                        break;
+                    case SDLK_q:
+                        frogDestRect.x -= SPEED;
+                        break;
+                    case SDLK_d:
+                        frogDestRect.x += SPEED;
+                        break;
+                }
+            }
+        }
 
-    // Draw the ground
-    for (int i = 0; i <= WINDOW_WIDTH; i += 48) {
-        destRect.x = i * 2;
-        destRect.y = WINDOW_HEIGHT - (48 * 2);
-        destRect.w = 48 * 2;
-        destRect.h = 48 * 2;
-        SDL_RenderCopy(renderer, texture_ground, &groundSrcRect, &destRect);
+        //Apply gravity without falling below the ground
+        if (jumping) {
+            frogDestRect.y += GRAVITY;
+        }
+        if (frogDestRect.y > WINDOW_HEIGHT - (48 * 2) - frogDestRect.h) {
+            frogDestRect.y = WINDOW_HEIGHT - (48 * 2) - frogDestRect.h;
+            jumping = 0;
+        }
+
+        SDL_RenderClear(renderer);
+
+        // Draw the background
+        for (int i = 0; i < WINDOW_WIDTH; i += backgroundSrcRect.w) {
+            for (int j = 0; j < WINDOW_HEIGHT; j += backgroundSrcRect.h) {
+                backgroundDestRect.x = i;
+                backgroundDestRect.y = j;
+                backgroundDestRect.w = backgroundSrcRect.w ;
+                backgroundDestRect.h = backgroundSrcRect.h ;
+                SDL_RenderCopy(renderer, texture_background, &backgroundSrcRect, &backgroundDestRect);
+            }
+        }
+
+        // Draw the ground
+        for (int i = 0; i <= WINDOW_WIDTH; i += 48) {
+            groundDestRect.x = i * 2;
+            groundDestRect.y = WINDOW_HEIGHT - (48 * 2);
+            groundDestRect.w = 48 * 2;
+            groundDestRect.h = 48 * 2;
+            SDL_RenderCopy(renderer, texture_ground, &groundSrcRect, &groundDestRect);
+        }
+
+        // Draw the platform
+        for (int i = 450; i < 620; i += 48) {
+            platformDestRect.x = i;
+            platformDestRect.y = WINDOW_HEIGHT - 200;
+            platformDestRect.w = 48;
+            platformDestRect.h = 5 * 3;
+            SDL_RenderCopy(renderer, texture_platform, &platformSrcRect, &platformDestRect);
+        }
+
+        //Draw the ninja
+        SDL_RenderCopy(renderer, texture_frog, &frogSrcRect, &frogDestRect);
+
+        SDL_RenderPresent(renderer);
     }
 
-    // Draw the platform
-    for (int i = 450; i < 620; i += 48) {
-        destRect.x = i;
-        destRect.y = WINDOW_HEIGHT - 200;
-        destRect.w = 48;
-        destRect.h = 5 * 3;
-        SDL_RenderCopy(renderer, texture_platform, &platformSrcRect, &destRect);
-    }
-
-    SDL_RenderPresent(renderer);
     SDL_Delay(5000);
 
     SDL_DestroyTexture(texture_background);
