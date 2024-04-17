@@ -9,8 +9,9 @@
 int main(int argc, char* argv[]) {
     SDL_Window *window;
     SDL_Renderer *renderer;
-    SDL_Surface *surface_frog, *surface_ground, *surface_platform, *surface_background;
-    SDL_Texture *texture_frog, *texture_ground, *texture_platform, *texture_background;
+
+    SDL_Surface *surface_frog_idle, *surface_frog_run, *surface_frog_jump, *surface_ground, *surface_platform, *surface_background;
+    SDL_Texture *texture_frog, *texture_frog_idle, *texture_frog_run, *texture_frog_jump, *texture_ground, *texture_platform, *texture_background;
     SDL_Rect frogSrcRect, frogDestRect, groundSrcRect, groundDestRect, platformSrcRect, platformDestRect, backgroundSrcRect, backgroundDestRect;
     SDL_Event event;
     int quit = 0;
@@ -39,8 +40,17 @@ int main(int argc, char* argv[]) {
     backgroundSrcRect.h = 64;
 
     // For Ninja Frog
-    surface_frog = IMG_Load("game_images/Main_Characters/Ninja_Frog/Idle (32x32).png");
-    texture_frog = SDL_CreateTextureFromSurface(renderer, surface_frog);
+    surface_frog_idle = IMG_Load("game_images/Main_Characters/Ninja_Frog/Idle (32x32).png");
+    texture_frog_idle = SDL_CreateTextureFromSurface(renderer, surface_frog_idle);
+
+    surface_frog_run = IMG_Load("game_images/Main_Characters/Ninja_Frog/Run (32x32).png");
+    texture_frog_run = SDL_CreateTextureFromSurface(renderer, surface_frog_run);
+    int sprite_index_for_run = 0;
+
+    surface_frog_jump = IMG_Load("game_images/Main_Characters/Ninja_Frog/Jump (32x32).png");
+    texture_frog_jump = SDL_CreateTextureFromSurface(renderer, surface_frog_jump);
+
+    texture_frog = texture_frog_idle;
 
     frogSrcRect.x = 0;     // X position of the sprite on the sprite sheet
     frogSrcRect.y = 0;     // Y position of the sprite on the sprite sheet
@@ -81,18 +91,35 @@ int main(int argc, char* argv[]) {
                         if (!jumping) {
                             frogDestRect.y -= SPEED * 7;
                             jumping = 1;
+                            texture_frog = texture_frog_jump;
+                            sprite_index_for_run = 0;
                         }
                         break;
+
                     case SDLK_s:
                         frogDestRect.y += SPEED;
+                        texture_frog = texture_frog_idle;
+                        sprite_index_for_run = 0;
                         break;
+
                     case SDLK_q:
                         frogDestRect.x -= SPEED;
+                        texture_frog = texture_frog_run;
+                        frogSrcRect.x = sprite_index_for_run * 32;
+                        sprite_index_for_run = (sprite_index_for_run + 1) % 12; // Increment and loop after 12 sprites
                         break;
+
                     case SDLK_d:
                         frogDestRect.x += SPEED;
+                        texture_frog = texture_frog_run;
+                        frogSrcRect.x = sprite_index_for_run * 32;
+                        sprite_index_for_run = (sprite_index_for_run + 1) % 12;
                         break;
                 }
+            }
+            else if (event.type == SDL_KEYUP) {
+                texture_frog = texture_frog_idle;
+                sprite_index_for_run = 0;
             }
         }
 
