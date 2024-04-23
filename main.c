@@ -176,8 +176,11 @@ void showLevelMenu(SDL_Renderer *renderer, SDL_Texture *texture_level_menu, SDL_
 int main(int argc, char* argv[]) {
     SDL_Window *window;
     SDL_Renderer *renderer;
-    SDL_Rect frogSrcRect, frogDestRect, groundSrcRect, groundDestRect, platformSrcRect, platformDestRect, backgroundSrcRect, backgroundDestRect, homeSrcRect, homeDestRect, lettersSrcRect, quitButtonRect, startButtonRect, levelsMenuSrcRect, levelsMenuDesRect, levelSrcRect, levelDesRect, pauseButtonDestRect, pauseButtonSrcRect;
+    SDL_Rect frogSrcRect, frogDestRect, groundSrcRect, groundDestRect, platformSrcRect, platformDestRect, backgroundSrcRect, backgroundDestRect, homeSrcRect, homeDestRect, lettersSrcRect, quitButtonRect, startButtonRect, levelsMenuSrcRect, levelsMenuDesRect, levelSrcRect, levelDesRect, pauseButtonDestRect, pauseButtonSrcRect, pauseButtonRect;
     SDL_Event event;
+    SDL_Rect pauseOverlay = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
+    SDL_Color pauseColor = {0, 0, 0, 128};  // Black with 50% transparency
+
     int quit = 0;
     int jumping = 0;
     int menuShown = 0;
@@ -248,10 +251,13 @@ int main(int argc, char* argv[]) {
     // Go to the homepage
     int start = 0;
     while (!start && !quit) {
+
         while (SDL_PollEvent(&event)) {
+
             if (event.type == SDL_QUIT) {
                 quit = 1;
             }
+
             if (event.type == SDL_MOUSEBUTTONDOWN) {
                 int mouseX, mouseY;
                 SDL_GetMouseState(&mouseX, &mouseY);
@@ -264,6 +270,7 @@ int main(int argc, char* argv[]) {
                     SDL_Quit();
                     return 0;
                 }
+
                 if (SDL_PointInRect(&(SDL_Point) {mouseX, mouseY}, &startButtonRect)) {
                     SDL_Delay(200);
                     menuShown = 1;
@@ -309,6 +316,7 @@ int main(int argc, char* argv[]) {
             SDL_RenderPresent(renderer);
         }
     }
+
     SDL_RenderClear(renderer);
 
     // For the background
@@ -351,8 +359,8 @@ int main(int argc, char* argv[]) {
 
     pauseButtonDestRect.x = 10;
     pauseButtonDestRect.y = 10;
-    pauseButtonDestRect.w = 21 * 3;
-    pauseButtonDestRect.h = 22 * 3;
+    pauseButtonDestRect.w = 21 * 2;
+    pauseButtonDestRect.h = 22 * 2;
 
     while (!quit) {
 
@@ -375,7 +383,23 @@ int main(int argc, char* argv[]) {
                 showLevelMenu(renderer, texture_level_menu, levelsMenuSrcRect, levelSrcRect, lettersSrcRect, texture_letters, event);
             }
 
-            else if (levelSelected != 0) {
+            if (event.type == SDL_MOUSEBUTTONDOWN) {
+                int mouseX, mouseY;
+                SDL_GetMouseState(&mouseX, &mouseY);
+
+//                    if (SDL_PointInRect(&(SDL_Point) {mouseX, mouseY}, &pauseButtonDestRect)) {
+//                     printf("Pause button clicked\n");
+//                     gamePaused = !gamePaused;
+//                    } else {
+//                        const char *error = SDL_GetError();
+//                        if (*error != '\0') {
+//                        printf("Erreur SDL : %s\n", error);
+//                        SDL_ClearError();
+//                    }
+//                }
+            }
+
+            else if (levelSelected != 0 && !gamePaused) {
 
                 if (event.type == SDL_KEYDOWN) {
                     switch (event.key.keysym.sym) {
@@ -463,6 +487,11 @@ int main(int argc, char* argv[]) {
 
             if (quit) {
                 levelSelected = 0;
+            }
+
+            if (gamePaused) {
+                SDL_SetRenderDrawColor(renderer, pauseColor.r, pauseColor.g, pauseColor.b, pauseColor.a);
+                SDL_RenderFillRect(renderer, &pauseOverlay);
             }
 
             SDL_RenderPresent(renderer);
