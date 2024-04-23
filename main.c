@@ -9,6 +9,82 @@
 int levelSelected = 0;
 SDL_Event event;
 
+SDL_Texture *texture_frog_idle = NULL;
+SDL_Texture *texture_frog_run = NULL;
+SDL_Texture *texture_frog_jump = NULL;
+SDL_Texture *texture_frog = NULL;
+SDL_Texture *texture_letters = NULL;
+SDL_Texture *texture_letters_black = NULL;
+SDL_Texture *texture_home = NULL;
+SDL_Texture *texture_level_menu = NULL;
+SDL_Texture *texture_background = NULL;
+SDL_Texture *texture_ground = NULL;
+SDL_Texture *texture_platform = NULL;
+SDL_Texture *texture_pause_button = NULL;
+
+void freeTextures() {
+    if (texture_home != NULL) {
+        SDL_DestroyTexture(texture_home);
+        texture_home = NULL;
+    }
+    if (texture_level_menu != NULL) {
+        SDL_DestroyTexture(texture_level_menu);
+        texture_level_menu = NULL;
+    }
+    if (texture_letters != NULL) {
+        SDL_DestroyTexture(texture_letters);
+        texture_letters = NULL;
+    }
+    if (texture_background != NULL) {
+        SDL_DestroyTexture(texture_background);
+        texture_background = NULL;
+    }
+    if (texture_frog_idle != NULL) {
+        SDL_DestroyTexture(texture_frog_idle);
+        texture_frog_idle = NULL;
+    }
+    if (texture_frog_run != NULL) {
+        SDL_DestroyTexture(texture_frog_run);
+        texture_frog_run = NULL;
+    }
+    if (texture_frog_jump != NULL) {
+        SDL_DestroyTexture(texture_frog_jump);
+        texture_frog_jump = NULL;
+    }
+    if (texture_frog != NULL) {
+        SDL_DestroyTexture(texture_frog);
+        texture_frog = NULL;
+    }
+    if (texture_pause_button != NULL) {
+        SDL_DestroyTexture(texture_pause_button);
+        texture_pause_button = NULL;
+    }
+    if (texture_ground != NULL) {
+        SDL_DestroyTexture(texture_ground);
+        texture_ground = NULL;
+    }
+    if (texture_platform != NULL) {
+        SDL_DestroyTexture(texture_platform);
+        texture_platform = NULL;
+    }
+}
+
+SDL_Texture* loadTexture(SDL_Renderer *renderer, const char* filepath) {
+    SDL_Surface *surface = IMG_Load(filepath);
+    if (!surface) {
+        printf("Unable to load image %s! SDL_image Error: %s\n", filepath, IMG_GetError());
+        freeTextures();
+        return NULL;
+    }
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (!texture) {
+        printf("Unable to create texture from %s! SDL Error: %s\n", filepath, SDL_GetError());
+        freeTextures();
+    }
+    SDL_FreeSurface(surface);
+    return texture;
+}
+
 void drawLetter (SDL_Renderer *renderer, SDL_Texture *texture_letters, SDL_Rect lettersSrcRect, char letter, int x, int y, int scale) {
     lettersSrcRect.x = ((letter - 'A') % 10) * lettersSrcRect.w;
     lettersSrcRect.y = ((letter - 'A') / 10) * lettersSrcRect.h;
@@ -58,24 +134,26 @@ void showLevelMenu(SDL_Renderer *renderer, SDL_Texture *texture_level_menu, SDL_
     int textY = WINDOW_HEIGHT - 50;
     drawString(renderer, texture_letters, lettersSrcRect, text, textX, textY, textScale);
 
-    int margin = 90;
-    int gap = 60;
-    int scale = 3;
+    int margin = 80;
+    int gap = 45;
+    int scale = 2;
     int levelWidth = levelSrcRect.w * scale;
     int levelHeight = levelSrcRect.h * scale;
     int levelsPerRow = (WINDOW_WIDTH - 2 * margin + gap) / (levelWidth + gap);
     int levelsPerColumn = (WINDOW_HEIGHT - 2 * margin + gap) / (levelHeight + gap);
 
-    for (int i = 0; i <= 50; i++) {
+    for (int i = 0; i <= 49; i++) {
         int row = i / levelsPerRow;
         int col = i % levelsPerRow;
         int x = margin + col * (levelSrcRect.w * scale + gap);
         int y = margin + row * (levelSrcRect.h * scale + gap);
 
-        char filename[120];
+        char filename[170];
         sprintf(filename, "game_images/Menu/Levels/%02d.png", i + 1);
-        SDL_Surface *surface_level = IMG_Load(filename);
-        SDL_Texture *texture_level = SDL_CreateTextureFromSurface(renderer, surface_level);
+        SDL_Texture *texture_level = loadTexture(renderer, filename);
+        if (!texture_level) {
+            return;
+        }
 
         SDL_Rect levelSrcRect = {0, 0, 19, 17};
         drawLevel(renderer, texture_level, levelSrcRect, x, y, scale);
@@ -88,25 +166,22 @@ void showLevelMenu(SDL_Renderer *renderer, SDL_Texture *texture_level_menu, SDL_
                 levelSelected = i + 1;
             }
         }
-
-        SDL_FreeSurface(surface_level);
         SDL_DestroyTexture(texture_level);
     }
 
     SDL_RenderPresent(renderer);
 }
 
+
 int main(int argc, char* argv[]) {
     SDL_Window *window;
     SDL_Renderer *renderer;
-
-    SDL_Surface *surface_frog_idle, *surface_frog_run, *surface_frog_jump, *surface_ground, *surface_platform, *surface_background, *surface_home, *surface_letters, *surface_letters_black, *surface_level_menu, *surface_level;
-    SDL_Texture *texture_frog, *texture_frog_idle, *texture_frog_run, *texture_frog_jump, *texture_ground, *texture_platform, *texture_background, *texture_home, *texture_letters, *texture_letters_black, *texture_level_menu, *texture_level;
-    SDL_Rect frogSrcRect, frogDestRect, groundSrcRect, groundDestRect, platformSrcRect, platformDestRect, backgroundSrcRect, backgroundDestRect, homeSrcRect, homeDestRect, lettersSrcRect, quitButtonRect, startButtonRect, levelsMenuSrcRect, levelsMenuDesRect, levelSrcRect, levelDesRect ;
+    SDL_Rect frogSrcRect, frogDestRect, groundSrcRect, groundDestRect, platformSrcRect, platformDestRect, backgroundSrcRect, backgroundDestRect, homeSrcRect, homeDestRect, lettersSrcRect, quitButtonRect, startButtonRect, levelsMenuSrcRect, levelsMenuDesRect, levelSrcRect, levelDesRect, pauseButtonDestRect, pauseButtonSrcRect;
     SDL_Event event;
     int quit = 0;
     int jumping = 0;
     int menuShown = 0;
+    int gamePaused = 0;
 
     SDL_Init(SDL_INIT_VIDEO);
 
@@ -121,28 +196,32 @@ int main(int argc, char* argv[]) {
 
     renderer = SDL_CreateRenderer(window, -1, 0);
 
-    // For the homepage
-    surface_home = IMG_Load("game_images/Terrain/Terrain (16x16).png");
-    texture_home = SDL_CreateTextureFromSurface(renderer, surface_home);
+    // Charge the textures
+    texture_home = loadTexture(renderer, "game_images/Terrain/Terrain (16x16).png");
+    texture_level_menu = loadTexture(renderer, "game_images/Terrain/Terrain (16x16).png");
+    texture_letters = loadTexture(renderer, "game_images/Menu/Text/Text (White) (8x10).png");
+    texture_letters_black = loadTexture(renderer, "game_images/Menu/Text/Text (Black) (8x10).png");
+    texture_background = loadTexture(renderer, "game_images/Background/Brown.png");
+    texture_frog_idle = loadTexture(renderer, "game_images/Main_Characters/Ninja_Frog/Idle (32x32).png");
+    texture_frog_run = loadTexture(renderer, "game_images/Main_Characters/Ninja_Frog/Run (32x32).png");
+    texture_frog_jump = loadTexture(renderer, "game_images/Main_Characters/Ninja_Frog/Jump (32x32).png");
+    texture_ground = loadTexture(renderer, "game_images/Terrain/Terrain (16x16).png");
+    texture_platform = loadTexture(renderer, "game_images/Terrain/Terrain (16x16).png");
+    texture_pause_button = loadTexture(renderer, "game_images/Menu/Buttons/Settings.png");
 
+    // For the homepage
     homeSrcRect.x = 208;
     homeSrcRect.y = 144;
     homeSrcRect.w = 32;
     homeSrcRect.h = 32;
 
     // For the levels'menu
-    surface_level_menu = IMG_Load("game_images/Terrain/Terrain (16x16).png");
-    texture_level_menu = SDL_CreateTextureFromSurface(renderer, surface_level_menu);
-
     levelsMenuSrcRect.x = 56;
     levelsMenuSrcRect.y = 7;
     levelsMenuSrcRect.w = 16;
     levelsMenuSrcRect.h = 18;
 
     // For the letters
-    surface_letters = IMG_Load("game_images/Menu/Text/Text (White) (8x10).png");
-    texture_letters = SDL_CreateTextureFromSurface(renderer, surface_letters);
-
     lettersSrcRect.w = 8 ;
     lettersSrcRect.h = 10 ;
 
@@ -166,9 +245,6 @@ int main(int argc, char* argv[]) {
     quitButtonRect.w = quitButtonWidth;
     quitButtonRect.h = lettersSrcRect.h * second_scale;
 
-    surface_letters_black = IMG_Load("game_images/Menu/Text/Text (Black) (8x10).png");
-    texture_letters_black = SDL_CreateTextureFromSurface(renderer, surface_letters_black);
-
     // Go to the homepage
     int start = 0;
     while (!start && !quit) {
@@ -182,7 +258,6 @@ int main(int argc, char* argv[]) {
 
                 if (SDL_PointInRect(&(SDL_Point) {mouseX, mouseY}, &quitButtonRect)) {
                     quit = 1;
-                    SDL_FreeSurface(surface_letters_black);
                     SDL_DestroyTexture(texture_letters_black);
                     SDL_DestroyRenderer(renderer);
                     SDL_DestroyWindow(window);
@@ -237,24 +312,13 @@ int main(int argc, char* argv[]) {
     SDL_RenderClear(renderer);
 
     // For the background
-    surface_background = IMG_Load("game_images/Background/Brown.png");
-    texture_background = SDL_CreateTextureFromSurface(renderer, surface_background);
-
     backgroundSrcRect.x = 0;
     backgroundSrcRect.y = 0;
     backgroundSrcRect.w = 64;
     backgroundSrcRect.h = 64;
 
     // For Rambo Frog
-    surface_frog_idle = IMG_Load("game_images/Main_Characters/Ninja_Frog/Idle (32x32).png");
-    texture_frog_idle = SDL_CreateTextureFromSurface(renderer, surface_frog_idle);
-
-    surface_frog_run = IMG_Load("game_images/Main_Characters/Ninja_Frog/Run (32x32).png");
-    texture_frog_run = SDL_CreateTextureFromSurface(renderer, surface_frog_run);
     int sprite_index_for_run = 0;
-
-    surface_frog_jump = IMG_Load("game_images/Main_Characters/Ninja_Frog/Jump (32x32).png");
-    texture_frog_jump = SDL_CreateTextureFromSurface(renderer, surface_frog_jump);
 
     texture_frog = texture_frog_idle;
 
@@ -268,13 +332,6 @@ int main(int argc, char* argv[]) {
     frogDestRect.x = WINDOW_WIDTH/2 - frogDestRect.w/2;  // X position on the screen
     frogDestRect.y = WINDOW_HEIGHT - (48 * 2) - frogDestRect.h;  // Y position on the screen
 
-    // Load the ground and the platform
-    surface_ground = IMG_Load("game_images/Terrain/Terrain (16x16).png");
-    texture_ground = SDL_CreateTextureFromSurface(renderer, surface_ground);
-
-    surface_platform = IMG_Load("game_images/Terrain/Terrain (16x16).png");
-    texture_platform = SDL_CreateTextureFromSurface(renderer, surface_platform);
-
     // Define the source rectangles for the ground and platform sprites
     groundSrcRect.x = 96;
     groundSrcRect.y = 0;
@@ -285,6 +342,17 @@ int main(int argc, char* argv[]) {
     platformSrcRect.y = 16;
     platformSrcRect.w = 48;
     platformSrcRect.h = 5;
+
+    // For the pause button
+    pauseButtonSrcRect.x = 0;
+    pauseButtonSrcRect.y = 0;
+    pauseButtonSrcRect.w = 21;
+    pauseButtonSrcRect.h = 22;
+
+    pauseButtonDestRect.x = 10;
+    pauseButtonDestRect.y = 10;
+    pauseButtonDestRect.w = 21 * 3;
+    pauseButtonDestRect.h = 22 * 3;
 
     while (!quit) {
 
@@ -377,17 +445,20 @@ int main(int argc, char* argv[]) {
                     SDL_RenderCopy(renderer, texture_ground, &groundSrcRect, &groundDestRect);
                 }
 
-//        // Draw the platform
-//        for (int i = 450; i < 620; i += 48) {
-//            platformDestRect.x = i;
-//            platformDestRect.y = WINDOW_HEIGHT - 200;
-//            platformDestRect.w = 48;
-//            platformDestRect.h = 5 * 3;
-//            SDL_RenderCopy(renderer, texture_platform, &platformSrcRect, &platformDestRect);
-//        }
+                // Draw the platform
+                for (int i = 450; i < 620; i += 48) {
+                    platformDestRect.x = i;
+                    platformDestRect.y = WINDOW_HEIGHT - 200;
+                    platformDestRect.w = 48;
+                    platformDestRect.h = 5 * 3;
+                    SDL_RenderCopy(renderer, texture_platform, &platformSrcRect, &platformDestRect);
+                }
 
                 //Draw the ninja
                 SDL_RenderCopy(renderer, texture_frog, &frogSrcRect, &frogDestRect);
+
+                // Draw the pause button
+                SDL_RenderCopy(renderer, texture_pause_button, &pauseButtonSrcRect, &pauseButtonDestRect);
             }
 
             if (quit) {
@@ -398,14 +469,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    SDL_FreeSurface(surface_home);
-    SDL_DestroyTexture(texture_home);
-    SDL_FreeSurface(surface_letters_black);
-    SDL_DestroyTexture(texture_letters_black);
-    SDL_DestroyTexture(texture_background);
-    SDL_DestroyTexture(texture_frog);
-    SDL_DestroyTexture(texture_ground);
-    SDL_DestroyTexture(texture_platform);
+    freeTextures();
+
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     levelSelected = 0;
