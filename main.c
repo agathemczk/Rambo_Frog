@@ -6,6 +6,9 @@
 #define SPEED 20
 #define GRAVITY 1
 
+int levelSelected = 0;
+SDL_Event event;
+
 void drawLetter (SDL_Renderer *renderer, SDL_Texture *texture_letters, SDL_Rect lettersSrcRect, char letter, int x, int y, int scale) {
     lettersSrcRect.x = ((letter - 'A') % 10) * lettersSrcRect.w;
     lettersSrcRect.y = ((letter - 'A') / 10) * lettersSrcRect.h;
@@ -35,7 +38,7 @@ void drawLevel(SDL_Renderer *renderer, SDL_Texture *texture_level, SDL_Rect leve
     SDL_RenderCopy(renderer, texture_level, &levelSrcRect, &levelDesRect);
 }
 
-void showLevelMenu(SDL_Renderer *renderer, SDL_Texture *texture_level_menu, SDL_Rect levelsMenuSrcRect, SDL_Rect levelSrcRect, SDL_Rect lettersSrcRect, SDL_Texture *texture_letters) {
+void showLevelMenu(SDL_Renderer *renderer, SDL_Texture *texture_level_menu, SDL_Rect levelsMenuSrcRect, SDL_Rect levelSrcRect, SDL_Rect lettersSrcRect, SDL_Texture *texture_letters, SDL_Event event) {
     for (int i = 0; i < WINDOW_WIDTH; i += levelsMenuSrcRect.w) {
         for (int j = 0; j < WINDOW_HEIGHT; j += levelsMenuSrcRect.h) {
             SDL_Rect levelsMenuDesRect;
@@ -77,6 +80,15 @@ void showLevelMenu(SDL_Renderer *renderer, SDL_Texture *texture_level_menu, SDL_
         SDL_Rect levelSrcRect = {0, 0, 19, 17};
         drawLevel(renderer, texture_level, levelSrcRect, x, y, scale);
 
+        if (event.type == SDL_MOUSEBUTTONDOWN) {
+            int mouseX, mouseY;
+            SDL_GetMouseState(&mouseX, &mouseY);
+            SDL_Rect levelDestRect = {x, y, levelSrcRect.w * scale, levelSrcRect.h * scale};
+            if (SDL_PointInRect(&(SDL_Point) {mouseX, mouseY}, &levelDestRect)) {
+                levelSelected = i + 1;
+            }
+        }
+
         SDL_FreeSurface(surface_level);
         SDL_DestroyTexture(texture_level);
     }
@@ -94,6 +106,7 @@ int main(int argc, char* argv[]) {
     SDL_Event event;
     int quit = 0;
     int jumping = 0;
+    int menuShown = 0;
 
     SDL_Init(SDL_INIT_VIDEO);
 
@@ -177,7 +190,8 @@ int main(int argc, char* argv[]) {
                     return 0;
                 }
                 if (SDL_PointInRect(&(SDL_Point) {mouseX, mouseY}, &startButtonRect)) {
-                    showLevelMenu(renderer, texture_level_menu, levelsMenuSrcRect, levelSrcRect, lettersSrcRect, texture_letters);
+                    SDL_Delay(200);
+                    menuShown = 1;
                     start = 1;
                 }
             }
@@ -272,20 +286,28 @@ int main(int argc, char* argv[]) {
     platformSrcRect.w = 48;
     platformSrcRect.h = 5;
 
-    int levelSelected = 0;
-
     while (!quit) {
+
+        //Apply gravity without falling below the ground
+        if (jumping) {
+            frogDestRect.y += GRAVITY;
+            if (frogDestRect.y > WINDOW_HEIGHT - (48 * 2) - frogDestRect.h) {
+                frogDestRect.y = WINDOW_HEIGHT - (48 * 2) - frogDestRect.h;
+                jumping = 0;
+            }
+        }
+
         while (SDL_PollEvent(&event)) {
 
             if (event.type == SDL_QUIT) {
                 quit = 1;
             }
 
-            if (!levelSelected) {
-                showLevelMenu(renderer, texture_level_menu, levelsMenuSrcRect, levelSrcRect, lettersSrcRect, texture_letters);
+            if (menuShown && !levelSelected) {
+                showLevelMenu(renderer, texture_level_menu, levelsMenuSrcRect, levelSrcRect, lettersSrcRect, texture_letters, event);
             }
 
-            else if (levelSelected == 1) {
+            else if (levelSelected != 0) {
 
                 if (event.type == SDL_KEYDOWN) {
                     switch (event.key.keysym.sym) {
@@ -303,38 +325,35 @@ int main(int argc, char* argv[]) {
                             frogDestRect.y += SPEED;
                             texture_frog = texture_frog_idle;
                             sprite_index_for_run = 0;
+                            jumping = 0;
                             break;
 
                         case SDLK_q:
                             frogDestRect.x -= SPEED;
-                            texture_frog = texture_frog_run;
-                            frogSrcRect.x = sprite_index_for_run * 32;
-                            sprite_index_for_run =
-                                    (sprite_index_for_run + 1) % 12; // Increment and loop after 12 sprites
+                            if (!jumping) {
+                                texture_frog = texture_frog_run;
+                                frogSrcRect.x = sprite_index_for_run * 32;
+                                sprite_index_for_run = (sprite_index_for_run + 1) % 12; // Increment and loop after 12 sprites
+                            }
                             break;
 
                         case SDLK_d:
                             frogDestRect.x += SPEED;
-                            texture_frog = texture_frog_run;
-                            frogSrcRect.x = sprite_index_for_run * 32;
-                            sprite_index_for_run = (sprite_index_for_run + 1) % 12;
+                            if (!jumping) {
+                                texture_frog = texture_frog_run;
+                                frogSrcRect.x = sprite_index_for_run * 32;
+                                sprite_index_for_run = (sprite_index_for_run + 1) % 12;
+                            }
                             break;
                     }
 
                 } else if (event.type == SDL_KEYUP) {
-                    texture_frog = texture_frog_idle;
-                    sprite_index_for_run = 0;
+                    if (!jumping) {
+                        texture_frog = texture_frog_idle;
+                        sprite_index_for_run = 0;
+                    }
                 }
 
-                //Apply gravity without falling below the ground
-                if (jumping) {
-                    frogDestRect.y += GRAVITY;
-                }
-
-                if (frogDestRect.y > WINDOW_HEIGHT - (48 * 2) - frogDestRect.h) {
-                    frogDestRect.y = WINDOW_HEIGHT - (48 * 2) - frogDestRect.h;
-                    jumping = 0;
-                }
                 SDL_RenderClear(renderer);
 
 
@@ -371,11 +390,13 @@ int main(int argc, char* argv[]) {
                 SDL_RenderCopy(renderer, texture_frog, &frogSrcRect, &frogDestRect);
             }
 
+            if (quit) {
+                levelSelected = 0;
+            }
+
             SDL_RenderPresent(renderer);
         }
     }
-
-    SDL_Delay(5000);
 
     SDL_FreeSurface(surface_home);
     SDL_DestroyTexture(texture_home);
@@ -387,6 +408,7 @@ int main(int argc, char* argv[]) {
     SDL_DestroyTexture(texture_platform);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    levelSelected = 0;
     SDL_Quit();
 
     return 0;
